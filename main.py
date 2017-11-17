@@ -89,6 +89,6 @@ if __name__ == '__main__':
     store_gmms("./data", model_path)
     # uncomment the following lines after training
     # gmms = load_gmms(model_path)
-    # voice_to_test_paths = []
+    # voice_to_test_paths = ["data/jackson.wav", "data/king.wav", "data/devil.wav"]
     # speakers = detect(gmms, voice_to_test_paths)
-    # print(speakers[0])
+    # print(speakers)
