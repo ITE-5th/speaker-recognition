@@ -1,14 +1,16 @@
+import glob
+import os
+import pickle
 import shutil
+from multiprocessing import Pool, cpu_count
 from subprocess import call
 
-from python_speech_features.base import mfcc
 import numpy as np
 import scipy.io.wavfile as wav
-import os
-import glob
+from python_speech_features.base import mfcc
 from sklearn.mixture import GaussianMixture
-import pickle
-from multiprocessing import Pool, cpu_count
+
+UNKNOWN = "unknown"
 
 
 def train_dir_timit(param):
@@ -32,8 +34,6 @@ def train_person(person_dir):
         (rate, sig) = wav.read(voice)
         mfcc_feat = mfcc(sig, rate)
         mfccs.append(mfcc_feat)
-        # os.system("rm -f {}".format(raw))
-        # os.system("rm -f {}".format(temp))
     mfccs = np.vstack(mfccs)
     gmm.fit(mfccs)
     return gmm
@@ -55,21 +55,18 @@ def train_gmms_from_timit(directory):
     return gmms
 
 
-def detect(gmms, voice_paths):
+def detect(gmms, voice_paths, neighs=3, threshold=40):
     result = []
     for voice_path in voice_paths:
-        max_score = -1e6
-        target_speaker = None
         (rate, sig) = wav.read(voice_path)
         mfcc_feat = mfcc(sig, rate)
-        for speaker, gmm in gmms.items():
-            scores = gmm.score_samples(mfcc_feat)
-            score = scores.mean()
-            print("{} = {}".format(speaker, score))
-            if score > max_score:
-                max_score = score
-                target_speaker = speaker
-        result.append(target_speaker)
+        speakers = {speaker: 100 + gmm.score(mfcc_feat).prod() for speaker, gmm in gmms.items()}
+        speakers = sorted(speakers.items(), key=lambda x: x[1], reverse=True)[:neighs]
+        print(speakers)
+        speakers = [speaker for speaker, score in speakers if score >= threshold]
+        if len(speakers) == 0:
+            speakers = [UNKNOWN]
+        result.append(speakers)
     return result
 
 
@@ -86,9 +83,9 @@ def load_gmms(model_path):
 
 if __name__ == '__main__':
     model_path = "gmms.pkl"
-    store_gmms("./data", model_path)
+    # store_gmms("./data", model_path)
     # uncomment the following lines after training
-    # gmms = load_gmms(model_path)
-    # voice_to_test_paths = ["data/jackson.wav", "data/king.wav", "data/devil.wav"]
-    # speakers = detect(gmms, voice_to_test_paths)
-    # print(speakers)
+    gmms = load_gmms(model_path)
+    voice_to_test_paths = ["data/robert_de_niro.wav"]
+    speakers = detect(gmms, voice_to_test_paths)
+    print(speakers)
