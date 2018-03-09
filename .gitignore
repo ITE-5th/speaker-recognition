@@ -1,8 +1,7 @@
 # Project
 
 data
-gmms.pkl
-
+models
 # Pycharm
 .idea/workspace.xml
 .idea/tasks.xml
