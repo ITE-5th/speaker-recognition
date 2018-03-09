@@ -69,11 +69,13 @@ class Speaker:
             feat = self.calculate_mfcc(voice)
             feats.append(feat)
         feats = np.vstack(feats)
-        # densities
+        # log dens
         t = self.gmm.score_samples(feats)
-        # back to props, but they have no meaning!, if we integrate over 40 dimensions(mfcc + delta) we will get 1 :).
+        # back to dens, but they have no meaning!, if we integrate over 40 dimensions(mfcc + delta) we will get 1 :).
         t = np.exp(t)
         # of course, they are very small!
+        print(t)
+        t = t.mean()
         print(t)
 
     @staticmethod
