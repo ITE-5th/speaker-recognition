@@ -217,6 +217,4 @@ if __name__ == '__main__':
     wf.writeframes(b''.join(frames))
     wf.close()
     model: SpeakersModel = SpeakersModel.load("models/gmms.model")
-    print(model.verify_speaker(WAVE_OUTPUT_FILENAME, "Arjuan-20100820"))
-    #print(model.verify_speaker("b0217.wav", "Arjuan-20100820"))
-    os.system("rm output.wav")
+    print(model.verify_speaker(WAVE_OUTPUT_FILENAME, "anthonyschaller-20071221".title()))
