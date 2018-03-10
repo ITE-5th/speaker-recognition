@@ -1,4 +1,5 @@
 import glob
+import math
 import pickle
 import random
 
@@ -9,7 +10,8 @@ from sklearn import preprocessing
 from sklearn.mixture import GaussianMixture
 
 
-def remove_silence(fs, signal,
+def remove_silence(fs,
+                   signal,
                    frame_duration=0.02,
                    frame_shift=0.01,
                    perc=0.15):
@@ -39,44 +41,27 @@ def remove_silence(fs, signal,
     retsig = retsig[:new_siglen]
     if is_unsigned:
         retsig = retsig + typeinfo.max / 2
-    return retsig.astype(orig_dtype)
+    return retsig.astype(orig_dtype), fs
 
 
 class Speaker:
 
-    def __init__(self, name, components=32, threshold=0.5, train_size=0.9):
+    def __init__(self, name, components=32):
         self.name = name
-        self.threshold = threshold
-        self.train_size = train_size
-        self.gmm = GaussianMixture(n_components=components, max_iter=200, n_init=5)
+        self.gmm = GaussianMixture(n_components=components, max_iter=200, n_init=2)
 
     def train_from_directory(self, directory):
         if directory[-1] != "/":
             directory += "/"
         voices = glob.glob(directory + "*.wav")
         random.shuffle(voices)
-        temp = int(self.train_size * len(voices))
         feats = []
-        for i in range(temp):
+        for i in range(len(voices)):
             voice = voices[i]
-            feat = self.calculate_mfcc(voice)
+            feat = Speaker.calculate_mfcc(voice)
             feats.append(feat)
         feats = np.vstack(feats)
         self.gmm.fit(feats)
-        feats = []
-        for i in range(temp, len(voices)):
-            voice = voices[i]
-            feat = self.calculate_mfcc(voice)
-            feats.append(feat)
-        feats = np.vstack(feats)
-        # log dens
-        t = self.gmm.score_samples(feats)
-        # back to dens, but they have no meaning!, if we integrate over 40 dimensions(mfcc + delta) we will get 1 :).
-        t = np.exp(t)
-        # of course, they are very small!
-        print(t)
-        t = t.mean()
-        print(t)
 
     @staticmethod
     def calculate_mfcc(voice):
@@ -107,27 +92,90 @@ class Speaker:
 
     @staticmethod
     def extract_features(audio, rate):
+        # not sure?
+        audio, rate = remove_silence(rate, audio)
         mfcc_feat = mfcc(audio, rate, numcep=20)
         mfcc_feat = preprocessing.scale(mfcc_feat)
         delta = Speaker.calculate_delta(mfcc_feat)
         combined = np.hstack((mfcc_feat, delta))
         return combined
 
+    def predict(self, mfccs):
+        return self.gmm.score(mfccs)
+
     def save(self, model_path):
         with open(model_path, 'wb') as f:
             pickle.dump(self, f)
 
-    def load(self, model_path):
+    @staticmethod
+    def load(model_path):
         with open(model_path, 'rb') as f:
-            res = pickle.load(f)
-            self.gmm = res.gmm
-            self.name = res.name
-            self.threshold = res.threshold
-            self.train_size = res.train_size
+            return pickle.load(f)
+
+
+class SpeakersModel:
+
+    def __init__(self, speakers):
+        self.speakers = speakers
+
+    def verify_speaker(self, voice_path, claimed_speaker, threshold=0.5):
+        speakers = self.speakers
+        try:
+            mfccs = Speaker.calculate_mfcc(voice_path)
+            claimed_speaker = [x for x in speakers if x.name == claimed_speaker][0]
+            other_speakers = [x for x in speakers if x.name != claimed_speaker]
+            claimed_speaker_score = claimed_speaker.predict(mfccs)
+            t = [x.predict(mfccs) for x in other_speakers]
+            t = np.array(t)
+            other_speakers_score = np.exp(t).sum()
+            result = math.exp(claimed_speaker_score) / other_speakers_score
+            print(result)
+            return result >= threshold
+        except Exception:
+            raise SpeakerNotFoundException()
+
+    def predict_speaker(self, voice_path):
+        speakers = self.speakers
+        max_score = -1e9
+        max_speaker = None
+        mfccs = Speaker.calculate_mfcc(voice_path)
+        for speaker in speakers:
+            score = speaker.predict(mfccs)
+            if score > max_score:
+                max_score = score
+                max_speaker = speaker
+        return max_speaker
+
+    def save(self, model_path):
+        with open(model_path, 'wb') as f:
+            pickle.dump(self, f)
+
+    @staticmethod
+    def load(model_path):
+        with open(model_path, 'rb') as f:
+            return pickle.load(f)
+
+
+class SpeakerNotFoundException(Exception):
+    pass
 
 
 if __name__ == '__main__':
-    name = "Anthony"
-    speaker = Speaker(name)
-    speaker.train_from_directory("data/anthonyschaller-20071221-/wav")
-    speaker.save(f"models/{name}.model")
+
+    # training
+
+    # speakers = []
+    # paths = sorted(os.listdir("data"), key=lambda x: x.lower())
+    # for path in paths:
+    #     temp = f"data/{path}/wav"
+    #     name = path[:path.rfind("-")].title()
+    #     print(name)
+    #     speaker = Speaker(name)
+    #     speaker.train_from_directory(temp)
+    #     speakers.append(speaker)
+    # model = SpeakersModel(speakers)
+    # model.save("models/gmms.model")
+
+    # testing
+    model: SpeakersModel = SpeakersModel.load("models/gmms.model")
+    print(model.verify_speaker("b0225.wav", "Arjuan-20100820"))
