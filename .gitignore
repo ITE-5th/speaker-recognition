@@ -2,7 +2,7 @@
 
 data
 models
-output.wav
+*.wav
 # Pycharm
 .idea
 # Byte-compiled / optimized / DLL files

@@ -185,8 +185,8 @@ if __name__ == '__main__':
     FORMAT = pyaudio.paInt16  # paInt8
     CHANNELS = 2
     RATE = 44100  # sample rate
-    RECORD_SECONDS = 3
-    WAVE_OUTPUT_FILENAME = "output.wav"
+    RECORD_SECONDS = 4
+    WAVE_OUTPUT_FILENAME = "8.wav"
 
     p = pyaudio.PyAudio()
 
@@ -217,4 +217,4 @@ if __name__ == '__main__':
     wf.writeframes(b''.join(frames))
     wf.close()
     model: SpeakersModel = SpeakersModel.load("models/gmms.model")
-    print(model.verify_speaker(WAVE_OUTPUT_FILENAME, "anthonyschaller-20071221".title()))
+    print(model.verify_speaker(WAVE_OUTPUT_FILENAME, "Zaher".title()))
