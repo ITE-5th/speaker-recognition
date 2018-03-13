@@ -101,7 +101,7 @@ class Speaker:
         combined = np.hstack((mfcc_feat, delta))
         return combined
 
-    def predict(self, mfccs):
+    def score(self, mfccs):
         return self.gmm.score(mfccs)
 
     def save(self, model_path):
@@ -125,8 +125,8 @@ class SpeakersModel:
             mfccs = Speaker.calculate_mfcc(voice_path)
             claimed_speaker = [x for x in speakers if x.name == claimed_speaker][0]
             other_speakers = [x for x in speakers if x.name != claimed_speaker]
-            claimed_speaker_score = claimed_speaker.predict(mfccs)
-            t = [x.predict(mfccs) for x in other_speakers]
+            claimed_speaker_score = claimed_speaker.score(mfccs)
+            t = [x.score(mfccs) for x in other_speakers]
             t = np.array(t)
             other_speakers_score = np.exp(t).sum()
             result = math.exp(claimed_speaker_score) / other_speakers_score
@@ -141,7 +141,7 @@ class SpeakersModel:
         max_speaker = None
         mfccs = Speaker.calculate_mfcc(voice_path)
         for speaker in speakers:
-            score = speaker.predict(mfccs)
+            score = speaker.score(mfccs)
             if score > max_score:
                 max_score = score
                 max_speaker = speaker
